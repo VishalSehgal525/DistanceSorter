@@ -35,10 +35,10 @@ const geoCode = async (address1, address2) => {
 //   console.log(await geoCode("Chittoor", "Patiala"));
 // })();
 
-const sorter = async (residence, destinations, salaries) => {
+const sorter = async (residence, destinations, salaries, ids) => {
   let dis = [];
   let hash = [];
-  for (i = 0; i < destinations.length; i++) {
+  for (let i = 0; i < destinations.length; i++) {
     let distance = await geoCode(residence, destinations[i]);
     dis.push(distance);
     hash.push(i);
@@ -57,49 +57,138 @@ const sorter = async (residence, destinations, salaries) => {
         temp = dis[i];
         dis[i] = dis[j];
         dis[j] = temp;
+        temp = ids[i];
+        ids[i] = ids[j];
+        ids[j] = temp;
       }
     }
   }
 
   // Further Sorting of the Destinations on the basis of Distances where the salaries are same.
-  for (let i = 0; i < sal.length; i++) {
-    for (let j = 0; j < sal.length; j++) {
+  for (let i = 0; i < salaries.length; i++) {
+    for (let j = 0; j < salaries.length; j++) {
       if (i == j) {
         continue;
       }
-      if (sal[i] == sal[j]) {
+      if (salaries[i] === salaries[j]) {
         if (dis[j] > dis[i]) {
-          let temp = salaries[j];
-          salaries[j] = salaries[i];
-          salaries[i] = temp;
-          temp = hash[i];
+          let temp = hash[i];
           hash[i] = hash[j];
           hash[j] = temp;
           temp = dis[i];
           dis[i] = dis[j];
           dis[j] = temp;
+          temp = ids[i];
+          ids[i] = ids[j];
+          ids[j] = temp;
         }
       }
     }
   }
-  //   console.log(salaries);
-  //   console.log(hash);
-  //   console.log(dis);
+  return await ids;
+};
 
-  let final_list = [];
-  for (let i = 0; i < hash.length; i++) {
-    final_list.push(destinations[hash[i]]);
+const percentGetter = async (residence, destinations, salaries) => {
+  let dis = [];
+  let hash = [];
+  for (let i = 0; i < destinations.length; i++) {
+    let distance = await geoCode(residence, destinations[i]);
+    dis.push(distance);
+    hash.push(i);
   }
-  //   console.log(final_list);
+  max_val = Math.max();
+  for (let i = 0; i < salaries.length; i++) {
+    if (max_val < salaries[i]) {
+      max_val = salaries[i];
+    }
+  }
+  partition = max_val / 4;
+  let percentage = [];
+  for (let i = 0; i < salaries.length; i++) {
+    if (salaries[i] > partition * 3) {
+      percentage.push(100);
+    } else if (salaries[i] > partition * 2) {
+      percentage.push(75);
+    } else if (salaries[i] > partition) {
+      percentage.push(50);
+    } else {
+      percentage.push(25);
+    }
+  }
+  return await percentage;
+};
 
-  return await final_list;
+const dataBreaker = async (residence, data) => {
+  destinations = [];
+  ids = [];
+  salaries = [];
+  for (let i = 0; i < data.length; i++) {
+    destinations.push(data[i].jobLocation);
+    ids.push(data[i]._id);
+    salaries.push(data[i].SalaryRange);
+  }
+  data = await sorter(residence, destinations, salaries, ids);
+  return await data;
+};
+
+const integratedValue = async (residence, data) => {
+  destinations = [];
+  ids = [];
+  salaries = [];
+  for (let i = 0; i < data.length; i++) {
+    destinations.push(data[i].jobLocation);
+    ids.push(data[i]._id);
+    salaries.push(data[i].SalaryRange);
+  }
+  percentage = await percentGetter(residence, destinations, salaries);
+  new_data = { _100: [], _75: [], _50: [], _25: [] };
+  for (let i = 0; i < data.length; i++) {
+    if (percentage[i] === 100) {
+      new_data._100.push(data[i]);
+    } else if (percentage[i] === 75) {
+      new_data._75.push(data[i]);
+    } else if (percentage[i] === 50) {
+      new_data._50.push(data[i]);
+    } else {
+      new_data._25.push(data[i]);
+    }
+  }
+  final_data = { _100: [], _75: [], _50: [], _25: [] };
+  let finale = await dataBreaker(residence, new_data._100);
+  final_data._100.push(finale);
+  finale = await dataBreaker(residence, new_data._75);
+  final_data._75.push(finale);
+  finale = await dataBreaker(residence, new_data._50);
+  final_data._50.push(finale);
+  finale = await dataBreaker(residence, new_data._25);
+  final_data._25.push(finale);
+  return await final_data;
 };
 
 // const res = "Rajpura";
-// const des = ["Patiala", "Chittoor", "Chandigarh", "Dehradun"];
-// const sal = [75000, 80000, 75000, 80000];
-// sorter(res, des, sal);
+// const data = [
+//   {
+//     _id: "1",
+//     jobLocation: "Patiala",
+//     SalaryRange: "25000",
+//   },
+//   {
+//     _id: "2",
+//     jobLocation: "Chittoor",
+//     SalaryRange: "80000",
+//   },
+//   {
+//     _id: "3",
+//     jobLocation: "Chandigarh",
+//     SalaryRange: "75000",
+//   },
+//   {
+//     _id: "4",
+//     jobLocation: "Dehradun",
+//     SalaryRange: "80000",
+//   },
+// ];
 
-module.exports = sorter;
+module.exports = integratedValue;
 
 // Note: Async Function will return something so make use of it using await only.
